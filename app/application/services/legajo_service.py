@@ -1,3 +1,4 @@
+# app/application/services/legajo_service.py
 # Importa la librería para calcular hashes de archivos.
 import hashlib
 from openpyxl import Workbook
