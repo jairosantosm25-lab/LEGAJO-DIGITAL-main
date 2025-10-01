@@ -1,0 +1,44 @@
+{% extends 'layouts/dashboard.html' %}
+{% block title %}Gestión de Backups{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-header-titles mb-4">
+    <h2 class="section-title">COPIAS DE SEGURIDAD</h2>
+    <h3 class="subsection-title">Control de historial y mantenimiento</h3>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-5">
+        <div class="card shadow border-danger">
+            <div class="card-header bg-danger text-white">Ejecución Manual de Backup</div>
+            <div class="card-body">
+                <p>Presione el botón para iniciar una copia de seguridad completa (Full Backup) de inmediato.</p>
+                <form method="POST" action="{{ url_for('sistemas.run_backup') }}">
+                    <button type="submit" class="btn btn-lg btn-danger w-100" onclick="this.disabled=true; this.innerText='Iniciando...'; this.form.submit();">
+                        <i class="bi bi-cloud-upload"></i> Ejecutar Backup Ahora
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="card shadow">
+            <div class="card-header">Historial de Backups Recientes</div>
+            <div class="card-body">
+                <p class="text-muted">Último backup completo: **2025-10-01 02:00:00** (Automático)</p>
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr><th>Fecha</th><th>Tipo</th><th>Tamaño</th><th>Estado</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>2025-10-01 02:00:00</td><td>FULL</td><td>5.2 GB</td><td><span class="badge bg-success">Éxito</span></td></tr>
+                        <tr><td>2025-09-30 02:00:00</td><td>FULL</td><td>5.1 GB</td><td><span class="badge bg-success">Éxito</span></td></tr>
+                        <tr><td>2025-09-29 18:30:00</td><td>DIFF</td><td>0.8 GB</td><td><span class="badge bg-warning">Advertencia</span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

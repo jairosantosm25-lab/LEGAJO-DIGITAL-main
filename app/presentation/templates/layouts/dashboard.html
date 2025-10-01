@@ -1,0 +1,147 @@
+{% extends 'layouts/base.html' %}
+
+{% block body_content %}
+<div class="d-flex" id="wrapper">
+    <div class="prototipo-sidebar d-flex flex-column">
+        <div class="sidebar-user-info">
+            <h5 class="user-name">{{ current_user.nombre_completo or current_user.username }}</h5>
+            {% if current_user.fecha_ultimo_login %}
+            <div class="last-login">
+                Última sesión a las: {{ current_user.fecha_ultimo_login.strftime('%H:%M %d/%m/%Y') }}
+            </div>
+            {% endif %}
+            <div class="profile-circle">
+                <i class="bi bi-person-fill"></i>
+            </div>
+        </div>
+
+        {# ========================================================== #}
+        {# 🔑 INICIO DE LA CORRECCIÓN: LÓGICA Y ENLACES DEL MENÚ 🔑 #}
+        {# ========================================================== #}
+        
+        {# Definir la URL de inicio base para el rol actual #}
+        {% set HOME_URL = url_for('index') %}
+        
+        {% if current_user.rol == 'Sistemas' %}
+            {# Si es Sistemas, forzar la URL a su dashboard visual y principal #}
+            {% set HOME_URL = url_for('sistemas.dashboard') %}
+        {% elif current_user.rol in ['AdministradorLegajos', 'RRHH'] %}
+            {# Si es Legajos/RRHH, forzar la URL a su menú principal #}
+            {% set HOME_URL = url_for('legajo.dashboard') %}
+        {% endif %}
+
+        <div class="sidebar-menu list-group list-group-flush flex-grow-1">
+            <div class="menu-heading">Opciones</div>
+            
+            {# 1. ENLACE DE INICIO CORREGIDO #}
+            {# Este enlace SIEMPRE redirige a la página principal del rol #}
+            <a href="{{ HOME_URL }}" class="list-group-item 
+                {% if request.endpoint == 'sistemas.dashboard' or request.endpoint == 'legajo.dashboard' %}active{% endif %}">
+                <i class="bi bi-house-door-fill"></i>Inicio
+            </a>
+            
+            {# 2. OPCIONES ESPECÍFICAS DE CADA ROL #}
+
+            {# --- Opciones para Legajos / RRHH --- #}
+            {% if current_user.rol in ['AdministradorLegajos', 'RRHH'] %}
+            <a href="{{ url_for('legajo.crear_personal') }}" class="list-group-item {% if request.endpoint == 'legajo.crear_personal' %}active{% endif %}">
+                <i class="bi bi-folder-plus"></i>Nuevo Legajo
+            </a>
+            <a href="{{ url_for('legajo.listar_personal') }}" class="list-group-item {% if request.endpoint in ['legajo.listar_personal', 'legajo.ver_legajo'] %}active{% endif %}">
+                <i class="bi bi-search"></i>Consultar Legajo
+            </a>
+            {% endif %}
+
+            {# --- Opciones para Sistemas --- #}
+            {% if current_user.rol == 'Sistemas' %}
+            <a href="{{ url_for('sistemas.auditoria') }}" class="list-group-item {% if request.endpoint == 'sistemas.auditoria' %}active{% endif %}">
+                <i class="bi bi-journal-check"></i>Auditoría
+            </a>
+            <a href="{{ url_for('sistemas.gestionar_usuarios') }}" class="list-group-item 
+                {% if request.endpoint == 'sistemas.gestionar_usuarios' %}active{% endif %}">
+                <i class="bi bi-person-gear"></i>Gestión de Usuarios
+            </a>
+            <a href="{{ url_for('sistemas.gestion_backups') }}" class="list-group-item 
+                {% if 'backups' in request.endpoint %}active{% endif %}">
+                <i class="bi bi-cloud-upload"></i>Backups
+            </a>
+            {% endif %}
+
+        </div>
+        {# ========================================================== #}
+        {# 🔑 FIN DE LA CORRECCIÓN 🔑 #}
+        {# ========================================================== #}
+        
+        <div class="list-group list-group-flush mt-auto">
+            <a href="{{ url_for('auth.logout') }}" class="list-group-item"><i class="bi bi-box-arrow-left"></i>Cerrar Sesión</a>
+        </div>
+    </div>
+
+    <div id="page-content-wrapper" class="prototipo-main-content">
+        <header class="prototipo-header mb-4">
+        {# ... el resto del código del header (logos, notificaciones) no cambia ... #}
+        
+            <button class="btn btn-primary" id="sidebarToggle">
+                <i class="bi bi-list"></i>
+            </button>
+            <div class="header-center-logos">
+                <div class="diresa-brand-header">
+                    <img src="{{ url_for('static', filename='img/diresa_logo.png') }}" alt="DIRESA Pasco Logo">
+                </div>
+                <div class="minsa-brand-header">
+                    <img src="{{ url_for('static', filename='img/logo_ministerio_salud.png') }}" alt="Ministerio de Salud Logo">
+                </div>
+            </div>
+
+            <div class="header-right-icons">
+                <div class="notification-bell dropdown">
+                    <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" id="dropdownNotifications" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-bell-fill"></i>
+                        <span class="badge bg-danger rounded-circle">1</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end text-small shadow" aria-labelledby="dropdownNotifications">
+                        <li><a class="dropdown-item" href="#">
+                            <div class="fw-bold">Contrato por vencer</div>
+                            <div class="small text-muted">Juan Pérez - Vence en 5 días</div>
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-center small text-muted" href="#">Ver todas las notificaciones</a></li>
+                    </ul>
+                </div>
+
+                <div class="user-dropdown dropdown">
+                    <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" id="dropdownUser" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-person-circle user-icon-header"></i>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end text-small shadow" aria-labelledby="dropdownUser">
+                        <li><a class="dropdown-item" href="#">Mi Perfil</a></li>
+                        <li><a class="dropdown-item" href="#">Configuración</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">Cerrar Sesión</a></li>
+                    </ul>
+                </div>
+            </div>
+            </header>
+
+        <main>
+            {% include 'components/_toast.html' %}
+            {% block dashboard_content %}{% endblock %}
+        </main>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', event => {
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', event => {
+                event.preventDefault();
+                document.getElementById('wrapper').classList.toggle('toggled');
+            });
+        }
+    });
+</script>
+
+{% block scripts %}{% endblock %}
+
+{% endblock %}
