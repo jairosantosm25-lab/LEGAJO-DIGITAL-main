@@ -1,5 +1,7 @@
 # RUTA: app/infrastructure/persistence/sqlserver_repository.py
 
+# RUTA: app/infrastructure/persistence/sqlserver_repository.py
+
 from app.database.connector import get_db_read, get_db_write
 from app.domain.models.usuario import Usuario
 from app.domain.models.personal import Personal
@@ -10,13 +12,41 @@ from app.utils.pagination import SimplePagination
 
 def _row_to_dict(cursor, row):
     if not row: return None
+    # Función de utilidad para convertir una fila del cursor a un diccionario
     return dict(zip([column[0] for column in cursor.description], row))
 
 class SqlServerUsuarioRepository(IUsuarioRepository):
+    
+    # -------------------------------------------------------------
+    # 🔑 CORRECCIÓN CLAVE: MÉTODO AÑADIDO PARA LISTAR USUARIOS 🔑
+    # -------------------------------------------------------------
+    def find_all_users_with_roles(self):
+        """
+        Obtiene la lista completa de usuarios con sus roles y estados para 
+        la tabla de Gestión de Usuarios.
+        """
+        conn = get_db_read()
+        cursor = conn.cursor()
+        
+        # Asumimos que este SP existe y retorna los campos necesarios:
+        # id, username, nombre_completo, rol_nombre, last_login, is_active/activo.
+        query = "{CALL p_obtener_usuarios_para_gestion}"
+        cursor.execute(query)
+        
+        # 1. Obtener la lista de diccionarios desde la BD
+        results = [_row_to_dict(cursor, row) for row in cursor.fetchall()]
+        
+        # 2. Mapear cada diccionario al objeto Usuario.
+        # Esto asume que Usuario.from_dict sabe cómo manejar los campos de rol.
+        return [Usuario.from_dict(d) for d in results]
+
+    # -------------------------------------------------------------
+    # FIN DEL MÉTODO AÑADIDO
+    # -------------------------------------------------------------
+
     def find_by_id(self, user_id):
         conn = get_db_read()
         cursor = conn.cursor()
-        # El SP sp_obtener_usuario_por_id ya trae el nombre y el último login.
         query = "{CALL sp_obtener_usuario_por_id(?)}"
         cursor.execute(query, user_id)
         row_dict = _row_to_dict(cursor, cursor.fetchone())
@@ -25,7 +55,6 @@ class SqlServerUsuarioRepository(IUsuarioRepository):
     def find_by_username_with_email(self, username):
         conn = get_db_read()
         cursor = conn.cursor()
-        # El SP sp_obtener_usuario_por_username ya trae el nombre y el último login.
         query = "{CALL sp_obtener_usuario_por_username(?)}"
         cursor.execute(query, username)
         row_dict = _row_to_dict(cursor, cursor.fetchone())
@@ -49,13 +78,12 @@ class SqlServerUsuarioRepository(IUsuarioRepository):
         conn = get_db_write()
         cursor = conn.cursor()
         cursor.execute("{CALL sp_actualizar_password_usuario(?, ?)}", username, new_hash)
-        conn.commit()    
+        conn.commit()     
 
     def update_last_login(self, user_id):
         """Llama a un SP para actualizar la fecha del último login."""
         conn = get_db_write()
         cursor = conn.cursor()
-        # Este nuevo SP simplemente actualizará el campo 'ultimo_login' a la fecha actual.
         cursor.execute("{CALL sp_actualizar_ultimo_login(?)}", user_id)
         conn.commit()
 
@@ -85,7 +113,6 @@ class SqlServerPersonalRepository(IPersonalRepository):
         conn = get_db_read()
         cursor = conn.cursor()
         cursor.execute("{CALL sp_obtener_documento_por_id(?)}", document_id)
-        # fetchone() recupera la única fila que devuelve el SP
         return cursor.fetchone()
 
     def delete_document_by_id(self, document_id):
@@ -106,7 +133,6 @@ class SqlServerPersonalRepository(IPersonalRepository):
         conn = get_db_read()
         cursor = conn.cursor()
         
-        # --- LA CORRECCIÓN CLAVE: LLAMAR AL SP ---
         cursor.execute("{CALL sp_listar_tipos_documento_por_seccion(?)}", id_seccion)
         
         # Devuelve una lista de diccionarios, ideal para ser convertida a JSON
@@ -245,7 +271,8 @@ class SqlServerPersonalRepository(IPersonalRepository):
         conn = get_db_read()
         cursor = conn.cursor()
         cursor.execute("{CALL sp_generar_reporte_general_personal}")
-        return [_row_to_dict(cursor, row) for row in cursor.fetchall()]    
+        return [_row_to_dict(cursor, row) for row in cursor.fetchall()]     
+    
     # Llama al SP para el borrado suave (desactivación) de un empleado.
     def delete_by_id(self, personal_id):
         conn = get_db_write()
@@ -269,7 +296,7 @@ class SqlServerPersonalRepository(IPersonalRepository):
         cursor = conn.cursor()
         cursor.execute("{CALL sp_listar_tipos_documento_por_seccion(?)}", id_seccion)
         # Devuelve directamente una lista de diccionarios
-        return [{"id": row.id_tipo, "nombre": row.nombre_tipo} for row in cursor.fetchall()]    
+        return [{"id": row.id_tipo, "nombre": row.nombre_tipo} for row in cursor.fetchall()]     
 
 # --- REPOSITORIO DE AUDITORÍA ---
 # Implementación completa y corregida del repositorio de auditoría.
@@ -295,5 +322,48 @@ class SqlServerAuditoriaRepository(IAuditoriaRepository):
         return SimplePagination(results, page, per_page, total)
     
 
+# --- REPOSITORIO DE SOLICITUDES DE MODIFICACIÓN ---
+# Asume que tienes una interfaz I_solicitud_repository definida en tu capa domain.
+# Si no la tienes, puedes simplemente hacer que esta clase no extienda nada por ahora.
 
+class SqlServerSolicitudRepository: # Si no tienes la interfaz, usa esto
+# class SqlServerSolicitudRepository(ISolicitudRepository): # Si tienes la interfaz
+    
+    def get_pending_requests(self):
+        """
+        Llama al SP para obtener la lista de solicitudes PENDIENTES.
+        """
+        conn = get_db_read()
+        cursor = conn.cursor()
+        
+        # 🔑 CORRECCIÓN: Llamada al SP de gestión con el parámetro 'LISTAR' 🔑
+        # Asumimos que el SP requiere un parámetro de acción ('LISTAR') y un ID (None)
+        query = "{CALL sp_gestionar_solicitud_modificacion(?, ?)}"
+        
+        # El SP debe estar programado para devolver el listado cuando 'LISTAR' es el primer parámetro
+        cursor.execute(query, 'LISTAR', None) 
+        
+        results = [_row_to_dict(cursor, row) for row in cursor.fetchall()]
+        
+        # Nota: Aquí deberías mapear los resultados a un objeto Solicitud,
+        # pero devolveremos el diccionario para simplificar y pasar a la plantilla.
+        return results
 
+    def process_request(self, request_id, action):
+        """
+        Procesa (APRUEBA/RECHAZA) una solicitud por su ID.
+        """
+        conn = get_db_write()
+        cursor = conn.cursor()
+        
+        # 🔑 CORRECCIÓN: Llamada al SP de gestión para APROBAR/RECHAZAR 🔑
+        # 'action' será 'APROBAR' o 'RECHAZAR' desde la ruta de Flask
+        query = "{CALL sp_gestionar_solicitud_modificacion(?, ?)}"
+        
+        # El SP debe recibir la acción (APROBAR/RECHAZAR) y el ID de la solicitud
+        cursor.execute(query, action.upper(), request_id) 
+        conn.commit()
+        
+        # El SP debe actualizar el campo de Legajo si es aprobación.
+        # Asumimos que el SP maneja la lógica de actualización/rechazo.
+        return True

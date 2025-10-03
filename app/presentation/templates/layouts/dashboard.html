@@ -15,28 +15,30 @@
             </div>
         </div>
 
-        {# ========================================================== #}
-        {# 🔑 INICIO DE LA CORRECCIÓN: LÓGICA Y ENLACES DEL MENÚ 🔑 #}
-        {# ========================================================== #}
-        
-        {# Definir la URL de inicio base para el rol actual #}
-        {% set HOME_URL = url_for('index') %}
-        
-        {% if current_user.rol == 'Sistemas' %}
-            {# Si es Sistemas, forzar la URL a su dashboard visual y principal #}
-            {% set HOME_URL = url_for('sistemas.dashboard') %}
-        {% elif current_user.rol in ['AdministradorLegajos', 'RRHH'] %}
-            {# Si es Legajos/RRHH, forzar la URL a su menú principal #}
-            {% set HOME_URL = url_for('legajo.dashboard') %}
-        {% endif %}
-
         <div class="sidebar-menu list-group list-group-flush flex-grow-1">
             <div class="menu-heading">Opciones</div>
-            
+
+            {# 🔑 LÓGICA DE URL DINÁMICA: Define la URL y el endpoint activo para 'Inicio' #}
+            {% set HOME_URL = url_for('index') %}
+            {% set active_test = 'index' %}
+
+            {% if current_user.rol == 'Sistemas' %}
+                {% set HOME_URL = url_for('sistemas.dashboard') %}
+                {% set active_test = 'sistemas.dashboard' %}
+            {% elif current_user.rol == 'RRHH' %}
+                {# Asumimos que RRHH va a su panel principal #}
+                {% set HOME_URL = url_for('rrhh.panel_rrhh') %}
+                {% set active_test = 'rrhh.panel_rrhh' %}
+            {% elif current_user.rol == 'AdministradorLegajos' %}
+                {# Asumimos que AdministradorLegajos va al listado de legajos #}
+                {% set HOME_URL = url_for('legajo.listar_personal') %}
+                {% set active_test = 'legajo.listar_personal' %}
+            {% endif %}
+
             {# 1. ENLACE DE INICIO CORREGIDO #}
-            {# Este enlace SIEMPRE redirige a la página principal del rol #}
+            {# Usa la URL dinámica y la verificación de endpoint para el estado activo #}
             <a href="{{ HOME_URL }}" class="list-group-item 
-                {% if request.endpoint == 'sistemas.dashboard' or request.endpoint == 'legajo.dashboard' %}active{% endif %}">
+                {% if request.endpoint == active_test or request.endpoint == 'main_dashboard' %}active{% endif %}">
                 <i class="bi bi-house-door-fill"></i>Inicio
             </a>
             
@@ -68,9 +70,6 @@
             {% endif %}
 
         </div>
-        {# ========================================================== #}
-        {# 🔑 FIN DE LA CORRECCIÓN 🔑 #}
-        {# ========================================================== #}
         
         <div class="list-group list-group-flush mt-auto">
             <a href="{{ url_for('auth.logout') }}" class="list-group-item"><i class="bi bi-box-arrow-left"></i>Cerrar Sesión</a>
@@ -79,8 +78,6 @@
 
     <div id="page-content-wrapper" class="prototipo-main-content">
         <header class="prototipo-header mb-4">
-        {# ... el resto del código del header (logos, notificaciones) no cambia ... #}
-        
             <button class="btn btn-primary" id="sidebarToggle">
                 <i class="bi bi-list"></i>
             </button>
@@ -121,7 +118,7 @@
                     </ul>
                 </div>
             </div>
-            </header>
+        </header>
 
         <main>
             {% include 'components/_toast.html' %}

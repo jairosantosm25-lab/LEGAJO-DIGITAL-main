@@ -3,17 +3,13 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, session, current_app
 from flask_login import login_user, logout_user, current_user
 from app.application.forms import LoginForm, TwoFactorForm
-# Si estás usando Flask-Login con un UserLoader, el objeto 'user' cargado
-# en verify_2fa ya contendrá el método is_system_admin().
 
 auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        # Redirección predeterminada si el usuario ya está logueado.
-        # Asumimos que 'index' maneja la lógica de redirección post-login/2FA.
-        return redirect(url_for('index')) 
+        return redirect(url_for('index')) # Asumimos que 'index' maneja la redirección post-login si ya está autenticado
     
     form = LoginForm()
     if form.validate_on_submit():
@@ -22,7 +18,6 @@ def login():
             user_id = usuario_service.attempt_login(form.username.data, form.password.data)
 
             if user_id:
-                # Éxito en la contraseña, se procede a la verificación 2FA
                 session['2fa_user_id'] = user_id
                 session['2fa_username'] = form.username.data
                 return redirect(url_for('auth.verify_2fa'))
@@ -36,7 +31,6 @@ def login():
 
 @auth_bp.route('/login/verify', methods=['GET', 'POST'])
 def verify_2fa():
-    # Verifica que exista una sesión pendiente de 2FA
     if '2fa_user_id' not in session:
         return redirect(url_for('auth.login'))
 
@@ -44,35 +38,30 @@ def verify_2fa():
     if form.validate_on_submit():
         user_id = session['2fa_user_id']
         usuario_service = current_app.config['USUARIO_SERVICE']
-        
-        # user es el objeto Usuario si el código 2FA es válido
         user = usuario_service.verify_2fa_code(user_id, form.code.data)
 
         if user:
-            # 1. Actualiza el último login
             usuario_service.update_last_login(user_id)
-
-            # 2. Inicia la sesión del usuario
             login_user(user, remember=True)
-
-            # 3. Limpia las variables de sesión 2FA
             session.pop('2fa_user_id', None)
             session.pop('2fa_username', None)
             
             flash(f'Bienvenido de nuevo, {user.nombre_completo or user.username}!', 'success')
             
-            # ==========================================================
-            # 🔑 LÓGICA DE REDIRECCIÓN CONDICIONAL (CORRECCIÓN CLAVE) 🔑
-            # ==========================================================
-            
-            if user.is_system_admin():
-                # Redirige a la nueva ruta visual del rol Sistemas
+            # ------------------------------------------------------------------
+            # 🔑 CORRECCIÓN: Lógica de redirección basada en el rol
+            # ------------------------------------------------------------------
+            if user.rol == 'Sistemas':
+                # Redirige al Dashboard de Sistemas (el de las 6 tarjetas)
                 return redirect(url_for('sistemas.dashboard'))
-            
-            # Si no es administrador de sistemas, se va a la ruta predeterminada (Legajos, RRHH)
-            return redirect(url_for('index'))
-            
-            # ==========================================================
+            elif user.rol == 'RRHH':
+                # Redirige a la ruta principal del módulo RRHH
+                # (Ajusta la ruta si es diferente, ej. rrhh.listar_personal)
+                return redirect(url_for('rrhh.dashboard')) 
+            else:
+                # Redirige al Dashboard General (la imagen que me enviaste)
+                return redirect(url_for('index'))
+            # ------------------------------------------------------------------
             
         else:
             flash('Código de verificación incorrecto o expirado.', 'danger')
